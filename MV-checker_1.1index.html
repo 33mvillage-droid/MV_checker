@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maaya Village 診断</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mvGold: '#c9a84c',
+            mvText: '#ffffff',
+            mvTextSub: '#e8dfc8',
+            mvDim: '#b8af9a',
+          },
+          fontFamily: {
+            serif: ['"Noto Serif JP"', '"Hiragino Mincho ProN"', '"YuMincho"', '"Yu Mincho"', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      position: relative;
+      background: linear-gradient(160deg, #050510 0%, #0c0826 40%, #160d3d 75%, #050510 100%);
+      font-family: "Noto Serif JP", "Hiragino Mincho ProN", "YuMincho", "Yu Mincho", serif;
+      color: #ffffff;
+      overflow-x: hidden;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.15; transform: scale(0.8); }
+      50% { opacity: 0.95; transform: scale(1.2); }
+    }
+    @keyframes flowerBounce {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      30% { transform: translateY(-18px) scale(1.04); }
+      60% { transform: translateY(-6px) scale(1.01); }
+      80% { transform: translateY(-12px) scale(1.02); }
+    }
+    @keyframes flowerGlow {
+      0%, 100% { filter: drop-shadow(0 4px 12px rgba(201,168,76,0.25)); }
+      50% { filter: drop-shadow(0 8px 24px rgba(201,168,76,0.55)); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-flower {
+      animation: flowerBounce 1.6s ease-in-out infinite, flowerGlow 1.6s ease-in-out infinite;
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="flex flex-col justify-start select-none">
+
+  <!-- 星屑のきらめき用コンテナ -->
+  <div id="sparkles-container" class="absolute inset-0 overflow-hidden pointer-events-none z-0"></div>
+
+  <!-- 背景のグラデーション発光レイヤー -->
+  <div class="absolute top-[15%] left-[10%] w-[300px] h-[300px] rounded-full pointer-events-none z-0" style="background: radial-gradient(circle, rgba(201,168,76,0.06) 0%, rgba(0,0,0,0) 70%); filter: blur(50px);"></div>
+  <div class="absolute bottom-[20%] right-[5%] w-[400px] h-[400px] rounded-full pointer-events-none z-0" style="background: radial-gradient(circle, rgba(100,50,150,0.09) 0%, rgba(0,0,0,0) 70%); filter: blur(60px);"></div>
+
+  <!-- メインコンテンツ -->
+  <main class="relative z-10 w-full max-w-3xl mx-auto px-4 py-8 md:py-12 flex-grow flex flex-col justify-center">
+    <div id="app-content"></div>
+  </main>
+
+  <script>
+    const C = {
+      card: 'rgba(11, 11, 28, 0.88)',
+      cardHover: 'rgba(20, 20, 45, 0.98)',
+      gold: '#c9a84c',
+      goldGlow: 'rgba(201, 168, 76, 0.35)',
+      text: '#ffffff',
+      textSub: '#e8dfc8',
+      dim: '#b8af9a',
+      border: 'rgba(201, 168, 76, 0.22)',
+      borderActive: 'rgba(201, 168, 76, 0.75)',
+    };
+
+    const QUESTIONS = [
+      {
+        id: 'concern', lbl: '悩み・課題', step: 1, type: 'multi', required: true,
+        txt: '今、最も気になっていることは？', sub: '複数選択できます',
+        opts: [
+          { id: 'money',    lbl: 'お金・収入・仕事について' },
+          { id: 'health',   lbl: '体の不調・健康への不安がある' },
+          { id: 'relation', lbl: '人間関係・恋愛・良縁に関する悩み' },
+          { id: 'spiritual',lbl: '霊的なもの・邪気・不思議な体験が気になる' },
+          { id: 'ancestor', lbl: '先祖・家系・カルマが気になる' },
+          { id: 'growth',   lbl: 'スピリチュアルな成長・覚醒・悟りに興味がある' },
+          { id: 'stagnant', lbl: 'なんとなく停滞・運が悪い気がする' },
+          { id: 'higher',   lbl: '悩みはないが、さらに人生を高めたい' },
+        ],
+      },
+      {
+        id: 'desire', lbl: '理想の未来', step: 2, type: 'multi', required: true,
+        txt: 'どんな未来を望んでいますか？', sub: 'ピンとくるものを選んでください（複数可）',
+        opts: [
+          { id: 'd_money',   lbl: '豊かさ・金運を引き寄せたい' },
+          { id: 'd_success', lbl: '仕事・事業で成功したい' },
+          { id: 'd_health',  lbl: '心身を整えて健やかでいたい' },
+          { id: 'd_beauty',  lbl: '素敵な縁・魅力・美を引き寄せたい' },
+          { id: 'd_brain',   lbl: '直感・インスピレーションを磨きたい' },
+          { id: 'd_spirit',  lbl: '邪気・霊障から守られたい' },
+          { id: 'd_karma',   lbl: 'カルマ・過去のトラウマを手放したい' },
+          { id: 'd_cosmos',  lbl: '宇宙・高次元とつながりたい' },
+          { id: 'd_ascend',  lbl: '魂の目的・アセンションへ進みたい' },
+        ],
+      },
+      {
+        id: 'experience', lbl: 'MV経験値', step: 3, type: 'single', required: true,
+        txt: 'Maaya Villageとのご縁は？', sub: null,
+        opts: [
+          { id: 'new',      lbl: '初めてです（ほぼ知らない）' },
+          { id: 'curious',  lbl: '少し知っている・気になっている' },
+          { id: 'existing', lbl: '購入・利用したことがある' },
+        ],
+      },
+      {
+        id: 'style', lbl: '取り入れ方', step: 4, type: 'multi', required: false,
+        txt: 'どのような形で取り入れたいですか？', sub: '複数選択できます',
+        opts: [
+          { id: 'wearable', lbl: 'アクセサリー類・携帯できるものを身に付けたい' },
+          { id: 'placed',   lbl: 'インテリア類・置き物として部屋に飾りたい' },
+          { id: 'daily',    lbl: 'スキンケア・日用品として使用したい' },
+          { id: 'space',    lbl: '家・土地・車などの場所や空間に設置したい' },
+          { id: 'service',  lbl: 'ヒーリングなどの施術を受けたい' },
+          { id: 'system',   lbl: '家系・情報場を根本から書き換えたい' },
+          { id: 'seminar',  lbl: 'セミナーで学びたい・イベントに参加したい' },
+          { id: 'light',    lbl: 'まず手軽なものから試してみたい' },
+        ],
+      },
+      {
+        id: 'target', lbl: '使用対象', step: 5, type: 'single', required: false,
+        txt: '主にどなたのために・どこに使いますか？', sub: null,
+        opts: [
+          { id: 'self',     lbl: '自分自身のために' },
+          { id: 'family',   lbl: '家族・子どものために' },
+          { id: 'pet',      lbl: 'ペットのために' },
+          { id: 'ancestor', lbl: '先祖・家系のために' },
+          { id: 'biz',      lbl: '会社・事業のために' },
+          { id: 'room',     lbl: '自宅・部屋の空間のために' },
+          { id: 'undecided',lbl: '特に決めていない' },
+        ],
+      },
+      {
+        id: 'budget', lbl: '予算', step: 6, type: 'single', required: true,
+        txt: '今回のご予算の目安は？', sub: null,
+        opts: [
+          { id: 'low',  lbl: '〜10,000円くらい' },
+          { id: 'mid',  lbl: '10,000〜50,000円くらい' },
+          { id: 'high', lbl: '50,000〜150,000円くらい' },
+          { id: 'any',  lbl: '予算は問わない（本気で変えたい）' },
+        ],
+      },
+      {
+        id: 'lifestyle', lbl: 'ライフスタイル', step: 7, type: 'multi', required: false,
+        txt: '当てはまるものがあれば教えてください', sub: '任意・複数選択可（なければそのまま完了）',
+        opts: [
+          { id: 'pet',            lbl: 'ペットがいる' },
+          { id: 'biz',            lbl: '会社・事業を経営している' },
+          { id: 'ancestor_care',  lbl: '亡くなった方・先祖のことが気になる' },
+          { id: 'has_izumi',      lbl: '宇宙の泉® をすでに持っている' },
+          { id: 'has_navi',       lbl: '高次元ナビをすでに使っている' },
+          { id: 'space',          lbl: '自宅・空間を整えたい' },
+          { id: 'has_izumi_card', lbl: '宇宙の泉専用カードをすでに持っている' },
+          { id: 'has_hado_card',  lbl: '波動調整カードをすでに持っている' },
+          { id: 'has_healing',    lbl: '遠隔ヒーリングを受けている' },
+        ],
+      },
+    ];
+
+    const PRODUCTS = [
+      { id:'izumi_l',   name:'『宇宙の泉®』基本セット(L)',              cat:'高次元波動発生装置', price:110000, budget:['high','any'],           concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'], approach:['goods'],          level:['beginner','mid','existing'], lifestyle:[],              priority:10, note:'MVの中心アイテム。全ワールド対応で人生を根本から底上げします',         url:'https://maayavillage.ocnk.net/product/5683' },
+      { id:'izumi_m',   name:'『宇宙の泉®』基本セット(M)',              cat:'高次元波動発生装置', price:66000,  budget:['high','any'],           concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'], approach:['goods'],          level:['beginner','mid','existing'], lifestyle:[],              priority:9,  note:'宇宙純粋意識領域の波動を自宅で発生させるMサイズ版',                     url:'https://maayavillage.ocnk.net/product/3518' },
+      { id:'joho_sys',  name:'情報場調整システム【序】',                 cat:'情報場書き換え',     price:137500, budget:['high','any'],           concerns:['money','health','relation','spiritual','ancestor','stagnant'],                approach:['system'],         level:['mid','existing'],            lifestyle:[],              priority:10, note:'家系場・個人場・過去生場を根本から書き換えるシステム',                   url:'https://maayavillage.ocnk.net/product/4897' },
+      { id:'navi_basic',name:'高次元ナビウォーターシステム【基本セット】',cat:'高次元ナビゲート',   price:55000,  budget:['high','any'],           concerns:['ancestor','spiritual','stagnant'],                                           approach:['system','goods'], level:['beginner','mid','existing'], lifestyle:['ancestor_care'],priority:8,  note:'ご先祖様を高次元へナビゲートし、家系のカルマを浄化します',               url:'https://maayavillage.ocnk.net/product/1227' },
+      { id:'navi_rep_uj',      name:'高次元ナビ【取替え用】Maayaの宇宙情報セレクト', cat:'高次元ナビゲート', price:6600,  budget:['low','mid','high','any'], concerns:['ancestor','growth','spiritual'],       approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:7, note:'Maayaが厳選した宇宙情報ワールドで先祖と家系の波動を底上げ',              url:'https://maayavillage.ocnk.net/product/1226' },
+      { id:'navi_rep_money',   name:'高次元ナビ【取替え用】超金運・超財運',           cat:'高次元ナビゲート', price:5500,  budget:['low','mid','high','any'], concerns:['money','ancestor'],                   approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:7, note:'お金・財運の流れを先祖ラインから改善したい方へ',                          url:'https://maayavillage.ocnk.net/product/1218' },
+      { id:'navi_rep_success', name:'高次元ナビ【取替え用】成功・仕事・勝利',         cat:'高次元ナビゲート', price:5500,  budget:['low','mid','high','any'], concerns:['money','ancestor'],                   approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:6, note:'仕事・成功・勝利の波動を家系ラインから強化',                              url:'https://maayavillage.ocnk.net/product/1219' },
+      { id:'navi_rep_brain',   name:'高次元ナビ【取替え用】頭脳・インスピレーション', cat:'高次元ナビゲート', price:5500,  budget:['low','mid','high','any'], concerns:['growth','ancestor'],                  approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:6, note:'直感・インスピレーション・頭脳の波動を先祖ラインから引き出す',            url:'https://maayavillage.ocnk.net/product/1224' },
+      { id:'navi_rep_karma',   name:'高次元ナビ【取替え用】カルマ・トラウマ・過去超越',cat:'高次元ナビゲート', price:5500,  budget:['low','mid','high','any'], concerns:['ancestor'],                           approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:7, note:'家系のカルマ・トラウマを先祖ラインから根本的に浄化',                       url:'https://maayavillage.ocnk.net/product/1220' },
+      { id:'navi_rep_cosmos',  name:'高次元ナビ【取替え用】宇宙情報',                 cat:'高次元ナビゲート', price:5500,  budget:['low','mid','high','any'], concerns:['growth','spiritual','ancestor'],       approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:6, note:'宇宙情報・宇宙意識の波動を先祖ラインに開通させる',                        url:'https://maayavillage.ocnk.net/product/1225' },
+      { id:'navi_rep_spirit',  name:'高次元ナビ【取替え用】邪気祓い・霊障解消',       cat:'高次元ナビゲート', price:5500,  budget:['low','mid','high','any'], concerns:['spiritual','ancestor'],               approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:7, note:'霊障・邪気を先祖ラインから浄化・解消するワールド',                        url:'https://maayavillage.ocnk.net/product/1221' },
+      { id:'navi_rep_relation',name:'高次元ナビ【取替え用】良縁・人気・魅力・美',     cat:'高次元ナビゲート', price:5500,  budget:['low','mid','high','any'], concerns:['relation','ancestor'],                approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:6, note:'良縁・人気・魅力の波動を先祖ラインから引き寄せる',                        url:'https://maayavillage.ocnk.net/product/1222' },
+      { id:'navi_rep_health',  name:'高次元ナビ【取替え用】健康・若返り',             cat:'高次元ナビゲート', price:5500,  budget:['low','mid','high','any'], concerns:['health','ancestor'],                  approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:6, note:'健康・若返りの波動を先祖ラインから整える',                                url:'https://maayavillage.ocnk.net/product/1223' },
+      { id:'navi_rep_ascend',  name:'高次元ナビ【取替え用】アセンション',             cat:'高次元ナビゲート', price:5500,  budget:['low','mid','high','any'], concerns:['growth','higher','ancestor'],          approach:['goods'], level:['existing'], lifestyle:['has_navi'], priority:6, note:'魂の上宿・アセンションを先祖ラインから後押しするワールド',                url:'https://maayavillage.ocnk.net/product/2258' },
+      { id:'heal_p',    name:'遠隔ヒーリング【個人】',                   cat:'ヒーリング',         price:5500,   priceLabel:'¥5,500〜', budget:['low','mid','high','any'],concerns:['health','stagnant','money','relation'],                                     approach:['service'],        level:['beginner','mid','existing'], lifestyle:[],              priority:8,  note:'Maayaによる遠隔ヒーリング（¥5,500〜）。月1回〜年間コースあり',           url:'https://maayavillage.ocnk.net/product-list/151' },
+      { id:'heal_pet',  name:'遠隔ヒーリング【ペット】',                 cat:'ヒーリング',         price:6600,   budget:['low','mid','high','any'],concerns:['health'],                                                                   approach:['service'],        level:['beginner','mid','existing'], lifestyle:['pet'],         priority:7,  note:'Maayaによるペット専用の遠隔ヒーリング',                                 url:'https://maayavillage.ocnk.net/product-list/151' },
+      { id:'heal_biz',  name:'遠隔ヒーリング【企業】',                   cat:'ヒーリング',         price:33000,  priceLabel:'¥33,000〜', budget:['mid','high','any'],     concerns:['money','stagnant'],                                                         approach:['service'],        level:['beginner','mid','existing'], lifestyle:['biz'],         priority:7,  note:'会社・事業向け遠隔ヒーリング（¥33,000〜）',                             url:'https://maayavillage.ocnk.net/product-list/151' },
+      { id:'brain_e',   name:'遠隔ブレイン＆脳幹エステ',                cat:'ブレインエステ',     price:25300,  budget:['mid','high','any'],     concerns:['growth','higher'],                                                          approach:['service'],        level:['mid','existing'],            lifestyle:[],              priority:7,  note:'脳幹への遠隔エステでインスピレーションと直感力を強化',                  url:'https://maayavillage.ocnk.net/product-list/148' },
+      { id:'ghost_pro', name:'シン・GHOST EJECTOR Pro',                 cat:'浄化・守り',         price:107800, budget:['high','any'],           concerns:['spiritual'],                                                                approach:['goods'],          level:['existing'],                  lifestyle:['space'],       priority:7,  note:'強力な霊障解消・邪気退散装置のプロ仕様',                                url:'https://maayavillage.ocnk.net/product/6089' },
+      { id:'ghost_m',   name:'GHOST EJECTOR Master',                    cat:'浄化・守り',         price:217800, budget:['any'],                  concerns:['spiritual'],                                                                approach:['goods'],          level:['existing'],                  lifestyle:['space'],       priority:6,  note:'最強クラス of 霊障解消・邪気退散装置マスター仕様',                      url:'https://maayavillage.ocnk.net/product/6088' },
+      { id:'kuu',       name:'空-KUU- MASTER CODE 第一番 CLEAR',        cat:'浄化・守り',         price:110000, budget:['high','any'],           concerns:['spiritual','growth'],                                                       approach:['goods'],          level:['existing'],                  lifestyle:['space'],       priority:7,  note:'空間浄化の最高峰。宇宙純粋意識領域のマスターコード',                    url:'https://maayavillage.ocnk.net/product/6133' },
+      { id:'uj_seed',   name:'UJシード',                                cat:'浄化・守り',         price:3850,   budget:['low','mid','high','any'],concerns:['spiritual','stagnant'],                                                    approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:[],              priority:6,  note:'誰でも使える浄化グッズ。手軽に始めたい方に最適',                        url:'https://maayavillage.ocnk.net/product/5774' },
+      { id:'h_water',   name:'MV ホーリーウォーター',                   cat:'波動グッズ',         price:16500,  budget:['mid','high','any'],     concerns:['health','stagnant'],                                                       approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:[],              priority:6,  note:'MVエネルギーが転写された波動水。日常に取り入れやすい',                  url:'https://maayavillage.ocnk.net/product/3354' },
+      { id:'shio',      name:'祓い塩',                                  cat:'浄化・守り',         price:6600,   priceLabel:'¥6,600〜', budget:['low','mid','high','any'],concerns:['spiritual','stagnant'],                                                    approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:['space'],       priority:5,  note:'空間と自身を祓い清める日常使いの浄化塩（¥6,600〜）',                    url:'https://maayavillage.ocnk.net/product-list/109' },
+      { id:'mv_mug',      name:'MVマグカップ',                                       cat:'波動グッズ',    price:15400,  budget:['mid','high','any'],          concerns:['health','stagnant'],                                                               approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:[],               priority:5,  note:'MVエネルギーが宿ったマグカップ。飲み物に波動を転写します',                                     url:'https://maayavillage.ocnk.net/product/5770' },
+      { id:'kingmon',     name:'超金運・超財運ゲートシステム',                         cat:'波動転写カード', price:41800,  budget:['mid','high','any'],          concerns:['money','stagnant'],                                                                approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:['biz'],          priority:8,  note:'全宇宙から超金運・超財運を直接引き寄せるステンレス製カード。財布・金庫・会社設置に対応', url:'https://maayavillage.ocnk.net/product/5161' },
+      { id:'sage',        name:'セージ各種',                                          cat:'浄化・守り',    price:3000,   budget:['low','mid','high','any'],    concerns:['spiritual','stagnant'],                                                            approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:['space'],        priority:5,  note:'空間の邪気を祓う天然セージ。3,000〜5,000円。空間浄化の入門グッズとして人気',          url:'https://maayavillage.ocnk.net/product-list/90' },
+      { id:'kakeizu',     name:'MV高次元家系図シート',                                cat:'情報場書き換え', price:33000,  budget:['mid','high','any'],          concerns:['ancestor','stagnant','money','health','relation'],                                approach:['system','goods'], level:['beginner','mid','existing'], lifestyle:['ancestor_care'], priority:7,  note:'家系図を書くだけで先祖供養・家系カルマの浄化が始まる世界初のツール',                      url:'https://maayavillage.ocnk.net/product/5860' },
+      { id:'plea',        name:'高次元波動転写美容液 Pure-a（プレア）エッセンス',     cat:'美容・化粧品',  price:32780,  budget:['mid','high','any'],          concerns:['health','relation','higher'],                                                      approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:[],               priority:7,  note:'プレアデスの波動を転写した高次元美容液。顔のリフトアップ・若返り・魅力アップ',            url:'https://maayavillage.ocnk.net/product/5329' },
+      { id:'nuuk_lotion', name:'NuuK! ローション',                                   cat:'NuuK!コスメ',   price:16500,  budget:['mid','high','any'],          concerns:['health','spiritual','stagnant'],                                                   approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:[],               priority:6,  note:'世界初・邪気を抜くコスメ。全身の邪気を祓い、肌を健やかに整えるローション',                url:'https://maayavillage.ocnk.net/product/6029' },
+      { id:'nuuk_trial',  name:'NuuK! ローション トライアルサイズ',                   cat:'NuuK!コスメ',   price:4950,   budget:['low','mid','high','any'],    concerns:['health','spiritual','stagnant'],                                                   approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:[],               priority:5,  note:'NuuK!ローションのお試しサイズ（¥4,950）。邪気抜きコスメを手軽に体験できる入門版',      url:'https://maayavillage.ocnk.net/product/6027' },
+      { id:'nuuk_scalp',  name:'NuuK! スカルプローション',                            cat:'NuuK!コスメ',   price:11000,  budget:['mid','high','any'],          concerns:['growth','health'],                                                                 approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:[],               priority:5,  note:'頭部・脳の邪気を除去する塗る脳サプリ。思考クリア・インスピレーション強化に',              url:'https://maayavillage.ocnk.net/product/6028' },
+      { id:'nuuk_body',   name:'NuuK! シャンプー／ボディソープ',                     cat:'NuuK!コスメ',   price:9900,   budget:['mid','high','any'],          concerns:['health','spiritual','stagnant'],                                                   approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:[],               priority:5,  note:'毎日の洗髪・入浴で全身の邪気を洗い流す。NuuK!シャンプー¥9,900・ボディソープ¥11,000', url:'https://maayavillage.ocnk.net/product-list/139' },
+      { id:'brace_amu1',  name:'ブレスレット〜amulet〜1（仕事・金運・良縁）',         cat:'アクセサリー',  price:42900,  budget:['mid','high','any'],          concerns:['money','relation','stagnant','higher'],                                            approach:['goods'],          level:['beginner','mid','existing'], lifestyle:[],               priority:7,  note:'仕事・金運・良縁・邪気祓いを1本に。全ワールドをバランスよく凝縮したお守りブレスレット', url:'https://maayavillage.ocnk.net/product/3357' },
+      { id:'brace_amu2',  name:'ブレスレット〜amulet〜2（健康・アセンション）',       cat:'アクセサリー',  price:42900,  budget:['mid','high','any'],          concerns:['health','growth','ancestor','spiritual'],                                          approach:['goods'],          level:['beginner','mid','existing'], lifestyle:[],               priority:7,  note:'健康・アセンション・過去超越・邪気祓いを1本に。内なる成長を支えるブレスレット',          url:'https://maayavillage.ocnk.net/product/3358' },
+      { id:'brace_amu3',  name:'ブレスレット〜amulet〜3（宇宙情報・頭脳）',           cat:'アクセサリー',  price:42900,  budget:['mid','high','any'],          concerns:['growth','higher','ancestor'],                                                      approach:['goods'],          level:['beginner','mid','existing'], lifestyle:[],               priority:6,  note:'宇宙情報・頭脳・過去超越・邪気祓いを1本に。直感や叡智を引き出すブレスレット',            url:'https://maayavillage.ocnk.net/product/3359' },
+      { id:'brace_money', name:'究極のブレスレット！超金運・超財運 suprême',           cat:'アクセサリー',  price:97680,  budget:['high','any'],               concerns:['money','stagnant'],                                                                approach:['goods'],          level:['mid','existing'],            lifestyle:[],               priority:8,  note:'超高級レインボーシトリン使用。超金運・超財運に特化した究極の波動転写ブレスレット',        url:'https://maayavillage.ocnk.net/product/4531' },
+      { id:'mv_keychain', name:'MVキーホルダー',                                      cat:'アクセサリー',  price:4400,   budget:['low','mid','high','any'],    concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'],   approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:['pet'],          priority:5,  note:'全ワールドを波動転写。子ども・ペットにも使えるMVオリジナルキーホルダー（大/小）',         url:'https://maayavillage.ocnk.net/product/5340' },
+      { id:'ballpen_all',     name:'【MVボールペン】全ワールド 9本セット',                cat:'文具', price:88000,  budget:['any'],               concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'], approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:['biz'], priority:6, note:'全9ワールドのボールペンセット（¥88,000）。経営者・事業主に特におすすめ',   url:'https://maayavillage.ocnk.net/product/3326' },
+      { id:'ballpen_money',   name:'【MVボールペン】超金運・超財運',                      cat:'文具', price:11000,  budget:['mid','high','any'],  concerns:['money','stagnant'],                                                          approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:['biz'], priority:5, note:'書くだけで超金運・超財運ワールドに繋がれる波動転写ボールペン',              url:'https://maayavillage.ocnk.net/product/3325' },
+      { id:'ballpen_success', name:'【MVボールペン】成功・仕事・勝利',                    cat:'文具', price:11000,  budget:['mid','high','any'],  concerns:['money'],                                                                     approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:['biz'], priority:5, note:'書くたびに成功・仕事・勝利の波動が高まるボールペン',                         url:'https://maayavillage.ocnk.net/product/3324' },
+      { id:'ballpen_brain',   name:'【MVボールペン】頭脳・インスピレーション',            cat:'文具', price:11000,  budget:['mid','high','any'],  concerns:['growth'],                                                                    approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[],      priority:5, note:'書くたびに直感・インスピレーション・頭脳が冴えわたるボールペン',            url:'https://maayavillage.ocnk.net/product/3323' },
+      { id:'ballpen_karma',   name:'【MVボールペン】カルマ・トラウマ・過去超越',          cat:'文具', price:11000,  budget:['mid','high','any'],  concerns:['ancestor'],                                                                  approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[],      priority:5, note:'書くたびにカルマ・トラウマ・過去の縛りを手放せる波動ボールペン',            url:'https://maayavillage.ocnk.net/product/3322' },
+      { id:'ballpen_cosmos',  name:'【MVボールペン】宇宙情報・宇宙意識',                  cat:'文具', price:11000,  budget:['mid','high','any'],  concerns:['growth','spiritual'],                                                        approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[],      priority:5, note:'書くたびに宇宙情報・宇宙意識ワールドとつながる波動転写ボールペン',          url:'https://maayavillage.ocnk.net/product/3321' },
+      { id:'ballpen_ascend',  name:'【MVボールペン】アセンション',                        cat:'文具', price:11000,  budget:['mid','high','any'],  concerns:['growth','higher'],                                                           approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[],      priority:5, note:'書くたびに魂の上昇・アセンションを加速させるボールペン',                    url:'https://maayavillage.ocnk.net/product/3317' },
+      { id:'ballpen_health',  name:'【MVボールペン】健康・若返り',                        cat:'文具', price:11000,  budget:['mid','high','any'],  concerns:['health'],                                                                    approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[],      priority:5, note:'書くたびに健康・若返りの波動が高まる波動転写ボールペン',                     url:'https://maayavillage.ocnk.net/product/3318' },
+      { id:'ballpen_relation',name:'【MVボールペン】良縁・人気・魅力・美',                cat:'文具', price:11000,  budget:['mid','high','any'],  concerns:['relation'],                                                                  approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[],      priority:5, note:'書くたびに良縁・人気・魅力・美の波動が引き寄せられるボールペン',            url:'https://maayavillage.ocnk.net/product/3319' },
+      { id:'ballpen_spirit',  name:'【MVボールペン】邪気祓い・霊障解消',                  cat:'文具', price:11000,  budget:['mid','high','any'],  concerns:['spiritual'],                                                                 approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[],      priority:5, note:'書くたびに邪気祓い・霊障解消の波動が働くボールペン',                         url:'https://maayavillage.ocnk.net/product/3320' },
+      { id:'izumi_s',      name:'『宇宙の泉®』基本セット(S)',                              cat:'高次元波動発生装置', price:27500,  budget:['mid','high','any'],          concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'],   approach:['goods'],          level:['beginner','mid','existing'], lifestyle:[],               priority:8,  note:'宇宙の泉シリーズの入門版。まずSから試したい方や、2台目・3台目をお探しの方にも',      url:'https://maayavillage.ocnk.net/product/347' },
+      { id:'izumi_sazare', name:'「宇宙の泉」取替・追加専用 さざれ各種',                   cat:'高次元波動発生装置', price:6600,   priceLabel:'¥6,600〜', budget:['low','mid','high','any'], concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'],   approach:['goods'],          level:['existing'],                  lifestyle:['has_izumi'],    priority:7,  note:'宇宙の泉の波動を常に新鮮に保つ取替・追加用さざれ。水晶・シトリン・ローズクォーツなど全ワールド対応', url:'https://maayavillage.ocnk.net/product-list/110' },
+      { id:'izumi_card1_std',  name:'『宇宙の泉』専用カード1（スタンダード）',                 cat:'高次元波動発生装置', price:11000,  priceLabel:'¥11,000〜', budget:['mid','high','any'],  concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'],   approach:['goods'],          level:['existing'],                  lifestyle:['has_izumi'],        priority:7,  note:'宇宙の泉のパワーを最初に引き出す専用カードLv.1（スタンダード）。Sサイズ¥11,000、Mサイズ¥16,500', url:'https://maayavillage.ocnk.net/product-list/62' },
+      { id:'izumi_card_world', name:'『宇宙の泉』専用カード1（各ワールド）',                   cat:'高次元波動発生装置', price:22000,  priceLabel:'¥22,000〜', budget:['mid','high','any'],  concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'],   approach:['goods'],          level:['existing'],                  lifestyle:['has_izumi_card'],   priority:7,  note:'スタンダードカード取得後のエネルギー補給に。悩み別ワールドを追加し波動をさらに特化させるカードLv.1', url:'https://maayavillage.ocnk.net/product-list/62' },
+      { id:'pleiades_strap',name:'ストラップ・プチド〜Pleiades〜',                          cat:'アクセサリー',   price:49500,  budget:['high','any'],                concerns:['growth','higher','relation','spiritual'],                                           approach:['goods'],          level:['beginner','mid','existing'], lifestyle:[],               priority:7,  note:'プレアデスの周波数を携帯できるストラップ。覚醒・魅力・直感力・ヒーリング能力を高めたい方に', url:'https://maayavillage.ocnk.net/product/5771' },
+      { id:'sun_uj',      name:'MVサンキャッチャー【UJ 宇宙純粋意識領域】',       cat:'アクセサリー', price:52800, budget:['high','any'], concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'], approach:['goods'], level:['beginner','mid','existing'], lifestyle:['space'], priority:7, note:'全ワールドを包む宇宙純粋意識領域の波動を空間に充満させる万能サンキャッチャー', url:'https://maayavillage.ocnk.net/product/1375' },
+      { id:'sun_money',   name:'MVサンキャッチャー【超金運・超財運】',            cat:'アクセサリー', price:52800, budget:['high','any'], concerns:['money','stagnant'],                                                          approach:['goods'], level:['beginner','mid','existing'], lifestyle:['space'], priority:6, note:'金運・財運の波動を虹の光と共に部屋中に広げる空間設置型グッズ',               url:'https://maayavillage.ocnk.net/product/2498' },
+      { id:'sun_spirit',  name:'MVサンキャッチャー【邪気祓い・霊障解消】',        cat:'アクセサリー', price:52800, budget:['high','any'], concerns:['spiritual'],                                                                 approach:['goods'], level:['beginner','mid','existing'], lifestyle:['space'], priority:6, note:'邪気・霊障を光の力で空間ごと浄化・解消するサンキャッチャー',                url:'https://maayavillage.ocnk.net/product/1743' },
+      { id:'sun_karma',   name:'MVサンキャッチャー【カルマ・トラウマ・過去超越】', cat:'アクセサリー', price:52800, budget:['high','any'], concerns:['ancestor'],                                                                  approach:['goods'], level:['beginner','mid','existing'], lifestyle:['space'], priority:6, note:'カルマ・トラウマ・過去の縛りを空間から解放するサンキャッチャー',            url:'https://maayavillage.ocnk.net/product/2500' },
+      { id:'sun_relation',name:'MVサンキャッチャー【良縁・人気・魅力・美】',       cat:'アクセサリー', price:52800, budget:['high','any'], concerns:['relation'],                                                                  approach:['goods'], level:['beginner','mid','existing'], lifestyle:['space'], priority:6, note:'良縁・人気・魅力・美の波動を空間に降り注がせるサンキャッチャー',            url:'https://maayavillage.ocnk.net/product/2499' },
+      { id:'hado_card_elec',  name:'波動調整カード（電磁波対策）各種 Lv.1',                   cat:'波動調整カード',  price:8800,   priceLabel:'¥8,800〜', budget:['low','mid','high','any'], concerns:['health','stagnant','spiritual'],                                                   approach:['goods','light'],  level:['beginner','mid','existing'], lifestyle:[],               priority:6,  note:'スマホ・PC・TV・Wi-Fi等の電磁波を浄化する入門カードLv.1（モバイル¥8,800〜）。まずここから始めることを推奨', url:'https://maayavillage.ocnk.net/product-list/34' },
+      { id:'hado_card_space', name:'波動調整カード（土地・建物・車用）各種 Lv.1',             cat:'波動調整カード',  price:63800,  budget:['high','any'],                concerns:['spiritual','stagnant','money'],                                                     approach:['goods','system'], level:['mid','existing'],            lifestyle:['space','biz'],  priority:7,  note:'土地・建物・車の波動を根本から調整するスタンダードカードLv.1（セット1 ¥63,800）。Lv.2（¥107,800）への足がかりに', url:'https://maayavillage.ocnk.net/product-list/34' },
+      { id:'hado_card_world', name:'波動調整カード2（各ワールド）─ エネルギー補給',           cat:'波動調整カード',  price:33000,  priceLabel:'¥33,000〜', budget:['mid','high','any'],  concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'],   approach:['goods'],          level:['existing'],                  lifestyle:['has_hado_card'], priority:7,  note:'スタンダードカードLv.1取得後のエネルギー補給に。悩みのワールドに特化したカード2を追加（¥33,000〜¥44,000）', url:'https://maayavillage.ocnk.net/product-list/34' },
+      { id:'sticker_all',     name:'MV波動転写ステッカー【全ワールド豪華版】',           cat:'波動グッズ', price:66000,  budget:['high','any'],        concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'], approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[], priority:6, note:'全9ワールドを1枚に凝縮した宙子さんデザインの最強ステッカー。手軽に全方位の波動を取り込む', url:'https://maayavillage.ocnk.net/product/1422' },
+      { id:'sticker_money',   name:'MV波動転写ステッカー【超金運・超財運】',             cat:'波動グッズ', price:22000,  budget:['mid','high','any'],  concerns:['money','stagnant'],                                                          approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[], priority:5, note:'超金運・超財運の波動を手軽に取り入れられるステッカー（¥22,000）',          url:'https://maayavillage.ocnk.net/product/1420' },
+      { id:'sticker_success', name:'MV波動転写ステッカー【成功・仕事・勝利】',           cat:'波動グッズ', price:16500,  budget:['mid','high','any'],  concerns:['money'],                                                                     approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[], priority:5, note:'仕事・成功・勝利の波動を貼るだけで取り込む宙子さんデザインステッカー',       url:'https://maayavillage.ocnk.net/product/1635' },
+      { id:'sticker_brain',   name:'MV波動転写ステッカー【頭脳・インスピレーション】',   cat:'波動グッズ', price:16500,  budget:['mid','high','any'],  concerns:['growth'],                                                                    approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[], priority:5, note:'直感・インスピレーション・頭脳強化の波動を取り込むステッカー',               url:'https://maayavillage.ocnk.net/product/1636' },
+      { id:'sticker_karma',   name:'MV波動転写ステッカー【カルマ・トラウマ・過去超越】', cat:'波動グッズ', price:16500,  budget:['mid','high','any'],  concerns:['ancestor'],                                                                  approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[], priority:5, note:'カルマ・トラウマ・過去の縛りを手放すための波動転写ステッカー',               url:'https://maayavillage.ocnk.net/product/1637' },
+      { id:'sticker_cosmos',  name:'MV波動転写ステッカー【宇宙情報・宇宙意識】',         cat:'波動グッズ', price:16500,  budget:['mid','high','any'],  concerns:['growth','spiritual'],                                                        approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[], priority:5, note:'宇宙情報・宇宙意識の波動を日常に取り込むステッカー',                         url:'https://maayavillage.ocnk.net/product/1638' },
+      { id:'sticker_spirit',  name:'MV波動転写ステッカー【邪気祓い・霊障解消】',        cat:'波動グッズ', price:22000,  budget:['mid','high','any'],  concerns:['spiritual'],                                                                 approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[], priority:5, note:'邪気祓い・霊障解消の波動を貼るだけで取り入れるステッカー（¥22,000）',       url:'https://maayavillage.ocnk.net/product/1639' },
+      { id:'sticker_health',  name:'MV波動転写ステッカー【健康・若返り】',               cat:'波動グッズ', price:16500,  budget:['mid','high','any'],  concerns:['health'],                                                                    approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[], priority:5, note:'健康・若返りの波動を手軽に取り込む宙子さんデザインステッカー',               url:'https://maayavillage.ocnk.net/product/1641' },
+      { id:'sticker_ascend',  name:'MV波動転写ステッカー【アセンション】',               cat:'波動グッズ', price:16500,  budget:['mid','high','any'],  concerns:['growth','higher'],                                                           approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[], priority:5, note:'アセンション・魂の上昇の波動を日常に取り込むステッカー',                     url:'https://maayavillage.ocnk.net/product/1642' },
+      { id:'misty_money',   name:'超金運 波動転写水 Maayaミスティ',                   cat:'波動転写水', price:8800,  budget:['low','mid','high','any'], concerns:['money','stagnant'],           approach:['goods','light','daily'], level:['beginner','mid','existing'], lifestyle:[], priority:7, note:'Lv.3の超金運波動をスプレーで取り込む。財布・部屋・体に吹きかけるだけで金運波動を補給（¥8,800）', url:'https://maayavillage.ocnk.net/product/5677' },
+      { id:'misty_success', name:'成功・仕事・勝利 波動転写水 Maayaミスティ',         cat:'波動転写水', price:5500,  budget:['low','mid','high','any'], concerns:['money'],                      approach:['goods','light','daily'], level:['beginner','mid','existing'], lifestyle:[], priority:6, note:'Lv.3の成功・仕事・勝利の波動をスプレーで日常に取り込む（¥5,500）',       url:'https://maayavillage.ocnk.net/product/5676' },
+      { id:'misty_brain',   name:'頭脳・インスピレーション 波動転写水 Maayaミスティ', cat:'波動転写水', price:5500,  budget:['low','mid','high','any'], concerns:['growth'],                     approach:['goods','light','daily'], level:['beginner','mid','existing'], lifestyle:[], priority:6, note:'Lv.3の頭脳・直感・インスピレーションの波動をスプレーで補給（¥5,500）',   url:'https://maayavillage.ocnk.net/product/5675' },
+      { id:'misty_karma',   name:'カルマ・トラウマ・過去超越 波動転写水 Maayaミスティ',cat:'波動転写水', price:5500,  budget:['low','mid','high','any'], concerns:['ancestor'],                   approach:['goods','light','daily'], level:['beginner','mid','existing'], lifestyle:[], priority:6, note:'Lv.3のカルマ・トラウマ解放の波動をスプレーで日常に取り込む（¥5,500）',    url:'https://maayavillage.ocnk.net/product/5674' },
+      { id:'misty_cosmos',  name:'宇宙情報・宇宙意識 波動転写水 Maayaミスティ',       cat:'波動転写水', price:5500,  budget:['low','mid','high','any'], concerns:['growth','spiritual'],          approach:['goods','light','daily'], level:['beginner','mid','existing'], lifestyle:[], priority:6, note:'Lv.3の宇宙情報・宇宙意識の波動をスプレーで取り込む（¥5,500）',           url:'https://maayavillage.ocnk.net/product/5673' },
+      { id:'misty_spirit',  name:'邪気祓い・霊障解消 波動転写水 Maayaミスティ',       cat:'波動転写水', price:5500,  budget:['low','mid','high','any'], concerns:['spiritual'],                   approach:['goods','light','daily'], level:['beginner','mid','existing'], lifestyle:[], priority:7, note:'Lv.3の邪気祓い・霊障解消の波動をスプレーで即補給。外出前や帰宅後に（¥5,500）', url:'https://maayavillage.ocnk.net/product/5672' },
+      { id:'misty_relation',name:'良縁・魅力・美 波動転写水 Maayaミスティ',           cat:'波動転写水', price:5500,  budget:['low','mid','high','any'], concerns:['relation','ancestor'],                approach:['goods','light','daily'], level:['beginner','mid','existing'], lifestyle:[], priority:6, note:'良縁・魅力・美の波動をスプレーで日常に取り込む（¥5,500）',           url:'https://maayavillage.ocnk.net/product/5671' },
+      { id:'misty_health',  name:'健康・若返り 波動転写水 Maayaミスティ',             cat:'波動転写水', price:5500,  budget:['low','mid','high','any'], concerns:['health'],                      approach:['goods','light','daily'], level:['beginner','mid','existing'], lifestyle:[], priority:6, note:'Lv.3の健康・若返りの波動をスプレーで補給。日常ケアとして毎日使える（¥5,500）', url:'https://maayavillage.ocnk.net/product/5670' },
+      { id:'misty_ascend',  name:'アセンション 波動転写水 Maayaミスティ',             cat:'波動転写水', price:5500,  budget:['low','mid','high','any'], concerns:['growth','higher'],             approach:['goods','light','daily'], level:['beginner','mid','existing'], lifestyle:[], priority:6, note:'Lv.3のアセンション・魂の上昇の波動をスプレーで取り込む（¥5,500）',       url:'https://maayavillage.ocnk.net/product/5669' },
+      { id:'navi_rep_multi', name:'高次元ナビ【取替え用】各ワールド',  cat:'高次元ナビゲート', price:5500,  priceLabel:'¥5,500〜', budget:['low','mid','high','any'], concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'], approach:['goods'],        level:['existing'],                  lifestyle:['has_navi'], priority:7, note:'複数のご希望をお持ちの方へ。9ワールドの中からご希望のワールドをまとめてお選びいただけます', url:'https://maayavillage.ocnk.net/product-list/122' },
+      { id:'sticker_multi',  name:'MV波動転写ステッカー各種',          cat:'波動グッズ',       price:16500, priceLabel:'¥16,500〜', budget:['mid','high','any'],          concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'], approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:[],           priority:6, note:'複数のご希望をお持ちの方へ。ご希望のワールドのステッカーをまとめてお選びいただけます（¥16,500〜）', url:'https://maayavillage.ocnk.net/product-list/142' },
+      { id:'ballpen_multi',  name:'MVボールペン各種',                  cat:'文具',            price:11000, priceLabel:'¥11,000〜', budget:['mid','high','any'],          concerns:['money','health','relation','spiritual','ancestor','growth','stagnant','higher'], approach:['goods','light'], level:['beginner','mid','existing'], lifestyle:['biz'],      priority:6, note:'複数のご希望をお持ちの方へ。ご希望のワールドのボールペンをまとめてお選びいただけます（¥11,000〜）', url:'https://maayavillage.ocnk.net/product-list/144' },
+    ];
+
+    const DESIRE_TO_CONCERN = {
+      d_money:   ['money'],
+      d_success: ['money'],
+      d_health:  ['health'],
+      d_beauty:  ['relation'],
+      d_brain:   ['growth'],
+      d_spirit:  ['spiritual'],
+      d_karma:   ['ancestor'],
+      d_cosmos:  ['growth', 'spiritual'],
+      d_ascend:  ['growth', 'spiritual'],
+    };
+
+    const CONCERN_PREFIX = {
+      money:    'お金・仕事の流れを変えたいあなたへ。',
+      health:   '心身を整えたいあなたへ。',
+      relation: '縁・人間関係を好転させたいあなたへ。',
+      spiritual:'霊的な守りを求めるあなたへ。',
+      ancestor: '先祖・家系を浄化したいあなたへ。',
+      growth:   '覚醒・成長を望むあなたへ。',
+      stagnant: '停滞を打破したいあなたへ。',
+      higher:   'さらなる高みを目指すあなたへ。',
+    };
+
+    const LIFESTYLE_REASON = {
+      pet:            '愛するペットにも優しい高次元エネルギーを届けます。',
+      biz:            '会社や事業のエネルギーフィールドを底上げし、繁栄をサポートします。',
+      ancestor_care:  '先祖供養と家系のカルマ浄化に深くアプローチします。',
+      has_navi:       '現在お手持ちの高次元ナビの機能をさらに引き出し、強化します。',
+      has_izumi:      '宇宙の泉の波動パワーをさらに何倍にも拡張させます。',
+      space:          'お住まいの空間を丸ごと浄化し、強力な結界を構築します。',
+      has_izumi_card: 'スタンダードカードで基盤を作った次のステップ。悩みのワールドに特化した波動補給カードです。',
+      has_hado_card:  'スタンダードカードLv.1の基盤の上に、各ワールドの波動を追加補給するステップです。',
+    };
+
+    const SCENE_BOOST = {
+      wearable: ['ghost_pro','ghost_m','brace_amu1','brace_amu2','brace_amu3','brace_money','mv_keychain','pleiades_strap'],
+      placed:   ['izumi_l','izumi_m','izumi_s','sun_uj','sun_money','sun_spirit','sun_karma','sun_relation'],
+      daily:    ['ghost_pro','ghost_m','sage','shio','mv_mug','mv_keychain','pleiades_strap',
+                 'ballpen_all','ballpen_money','ballpen_success','ballpen_brain','ballpen_karma','ballpen_cosmos','ballpen_ascend','ballpen_health','ballpen_relation','ballpen_spirit',
+                 'nuuk_lotion','nuuk_trial','nuuk_scalp','nuuk_body','h_water','plea',
+                 'misty_money','misty_success','misty_brain','misty_karma','misty_cosmos','misty_spirit','misty_relation','misty_health','misty_ascend'],
+      space:    ['hado_card_elec','hado_card_space','hado_card_world',
+                 'sticker_all','sticker_money','sticker_success','sticker_brain','sticker_karma','sticker_cosmos','sticker_spirit','sticker_health','sticker_ascend',
+                 'shio','kingmon',
+                 'navi_basic','navi_rep_uj','navi_rep_money','navi_rep_success','navi_rep_brain','navi_rep_karma','navi_rep_cosmos','navi_rep_spirit','navi_rep_relation','navi_rep_health','navi_rep_ascend',
+                 'mv_keychain','pleiades_strap'],
+      light:    ['uj_seed','nuuk_trial','sage','shio','mv_keychain','hado_card_elec',
+                 'misty_money','misty_success','misty_brain','misty_karma','misty_cosmos','misty_spirit','misty_relation','misty_health','misty_ascend',
+                 'sticker_money','sticker_success','sticker_brain','sticker_karma','sticker_cosmos','sticker_spirit','sticker_health','sticker_ascend'],
+    };
+
+    const TARGET_BOOST = {
+      self:     ['heal_p','brace_amu1','brace_amu2','nuuk_lotion','nuuk_scalp','h_water','mv_mug','brain_e','plea','pleiades_strap'],
+      family:   ['heal_p','mv_keychain','h_water','izumi_l','izumi_m','izumi_s','mv_mug'],
+      pet:      ['heal_pet','mv_keychain'],
+      ancestor: ['navi_basic','kakeizu','izumi_l','izumi_m','izumi_s','izumi_sazare','izumi_card1_std','izumi_card_world'],
+      biz:      ['heal_biz','kingmon','hado_card_space','ballpen_all','ballpen_money','ballpen_success','izumi_l'],
+      room:     ['ghost_pro','ghost_m','kuu','hado_card_space','sun_uj','sun_money','sun_spirit','sun_karma','sun_relation','sage','shio','sticker_all'],
+    };
+
+    const DESIRE_OUTCOME = {
+      d_money:   '豊かさへの扉が開く',
+      d_success: '成功への道が拓ける',
+      d_health:  '心身が輝きを取り戻す',
+      d_beauty:  '素晴らしい縁が引き寄せられる',
+      d_brain:   '直感と才能が花開く',
+      d_spirit:  '守りが強まり安心感が生まれる',
+      d_karma:   '過去が解放されて軽くなれる',
+      d_cosmos:  '宇宙と深くつながれる',
+      d_ascend:  '魂の目的・アセンションへ進みたい',
+    };
+
+    const CONCERN_OUTCOME = {
+      money:    'お金と仕事の流れが動き出す',
+      health:   '心身が本来の輝きを取り戻す',
+      relation: '素晴らしい縁が引き寄せられる',
+      spiritual:'霊的な守りが格段に強まる',
+      ancestor: '先祖の縁が解放され家系が変わる',
+      growth:   '魂が大きく成長し覚醒が深まる',
+      stagnant: '停滞が解けて人生の流れが変わる',
+      higher:   'さらなる高みへと人生が加速する',
+    };
+
+    function generateReason(product, answers) {
+      const concerns  = answers.concern   || [];
+      const lifestyle = answers.lifestyle || [];
+
+      const matchedLife = lifestyle.find(l => product.lifestyle.includes(l));
+      if (matchedLife && LIFESTYLE_REASON[matchedLife]) {
+        return LIFESTYLE_REASON[matchedLife];
+      }
+
+      const matchedConcern = concerns.find(c => product.concerns.includes(c));
+      const prefix = matchedConcern ? (CONCERN_PREFIX[matchedConcern] || '') : '';
+      return prefix + product.note;
+    }
+
+    function generateOverallMessage(answers) {
+      const desires = answers.desire || [];
+      const concerns = answers.concern || [];
+      if (desires.length > 0) {
+        const primaryDesire = desires[0];
+        if (DESIRE_OUTCOME[primaryDesire]) {
+          return `${DESIRE_OUTCOME[primaryDesire]}よう、サポートいたします。`;
+        }
+      }
+      if (concerns.length > 0) {
+        const primaryConcern = concerns[0];
+        if (CONCERN_OUTCOME[primaryConcern]) {
+          return `${CONCERN_OUTCOME[primaryConcern]}よう、整えてまいりましょう。`;
+        }
+      }
+      return 'より豊かで調和に満ちた素晴らしい未来へ。';
+    }
+
+    function getRecommendations(answers) {
+      const budget = answers.budget ? answers.budget[0] : 'any';
+      const selectedConcerns = answers.concern || [];
+      const selectedStyles = answers.style || [];
+      const selectedTarget = answers.target ? answers.target[0] : 'self';
+      const selectedLifestyle = answers.lifestyle || [];
+
+      let scoreList = PRODUCTS.map(p => {
+        let score = 0;
+        
+        if (p.budget.includes(budget) || budget === 'any') {
+          score += 15;
+        }
+
+        selectedConcerns.forEach(c => {
+          if (p.concerns.includes(c)) score += 10;
+        });
+
+        selectedLifestyle.forEach(l => {
+          if (p.lifestyle && p.lifestyle.includes(l)) score += 12;
+        });
+
+        selectedStyles.forEach(s => {
+          if (SCENE_BOOST[s] && SCENE_BOOST[s].includes(p.id)) score += 8;
+        });
+
+        if (selectedTarget && TARGET_BOOST[selectedTarget] && TARGET_BOOST[selectedTarget].includes(p.id)) {
+          score += 8;
+        }
+
+        score += p.priority * 1.5;
+
+        const MULTI_WORLD_IDS = ['navi_rep_multi', 'sticker_multi', 'ballpen_multi'];
+        if (MULTI_WORLD_IDS.includes(p.id) && selectedConcerns.length >= 2) {
+          score += 20;
+        }
+
+        return { id: p.id, score: score };
+      });
+
+      scoreList.sort((a, b) => b.score - a.score);
+
+      const resultsList = scoreList.slice(0, 3).map((item, idx) => {
+        const p = PRODUCTS.find(prod => prod.id === item.id);
+        return {
+          id: p.id,
+          reason: generateReason(p, answers),
+          priority: idx + 1
+        };
+      });
+
+      return {
+        recommendations: resultsList,
+        overall_message: generateOverallMessage(answers)
+      };
+    }
+
+    const state = {
+      screen: 'welcome', 
+      step: 0,
+      lastRenderedStep: null,
+      answers: {},
+      results: null
+    };
+
+    let matchInterval = null;
+
+    window.startDiagnosis = function() {
+      state.screen = 'quiz';
+      state.step = 0;
+      state.lastRenderedStep = null;
+      state.answers = {};
+      render();
+    };
+
+    window.toggleOption = function(optionId) {
+      const q = QUESTIONS[state.step];
+      let selectedOptions = state.answers[q.id] || [];
+      if (q.type === 'single') {
+        selectedOptions = [optionId];
+      } else {
+        if (selectedOptions.includes(optionId)) {
+          selectedOptions = selectedOptions.filter(id => id !== optionId);
+        } else {
+          selectedOptions = [...selectedOptions, optionId];
+        }
+      }
+      state.answers[q.id] = selectedOptions;
+      render();
+    };
+
+    window.prevStep = function() {
+      if (state.step > 0) {
+        state.step--;
+        render();
+      }
+    };
+
+    window.nextStep = function() {
+      if (state.step < QUESTIONS.length - 1) {
+        state.step++;
+        render();
+      } else {
+        state.screen = 'matching';
+        render();
+        setTimeout(() => {
+          state.results = getRecommendations(state.answers);
+          state.screen = 'results';
+          render();
+        }, 1800);
+      }
+    };
+
+    window.retry = function() {
+      state.screen = 'welcome';
+      state.step = 0;
+      state.lastRenderedStep = null;
+      state.answers = {};
+      state.results = null;
+      render();
+    };
+
+    function generateSparkles() {
+      const container = document.getElementById('sparkles-container');
+      if (!container) return;
+      container.innerHTML = '';
+      for (let i = 0; i < 65; i++) {
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        const size = Math.random() * 2 + 0.5;
+        const delay = Math.random() * 5;
+        const duration = Math.random() * 4 + 3;
+        const isGold = Math.random() < 0.25;
+
+        const star = document.createElement('div');
+        star.style.position = 'absolute';
+        star.style.left = `${x}%`;
+        star.style.top = `${y}%`;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.borderRadius = '50%';
+        star.style.backgroundColor = isGold ? '#e4be5b' : '#ffffff';
+        star.style.boxShadow = isGold ? '0 0 4px #c9a84c' : '0 0 3px #ffffff';
+        star.style.animation = `twinkle ${duration}s ease-in-out infinite`;
+        star.style.animationDelay = `${delay}s`;
+        container.appendChild(star);
+      }
+    }
+
+    function renderWelcome() {
+      if (matchInterval) {
+        clearInterval(matchInterval);
+        matchInterval = null;
+      }
+      const container = document.getElementById('app-content');
+      container.innerHTML = `
+        <div class="text-center pt-1 pb-16 md:pt-2 md:pb-24 px-4 flex flex-col items-center animate-fade-in">
+          <img
+            src="MV-logo_gold.png"
+            alt="Maaya Village"
+            class="max-w-[320px] w-[80%] mb-9"
+          />
+
+          <h1 class="font-normal text-mvText leading-relaxed mb-8 tracking-wide flex flex-col items-center">
+            <span class="text-xl md:text-2xl text-mvTextSub tracking-[0.2em] font-medium mb-3 block opacity-95">
+              今のあなたに最適なものを
+            </span>
+            <span class="text-4xl md:text-5xl block mt-1 font-bold tracking-wider">
+              MaayaVillage診断
+            </span>
+          </h1>
+
+          <div class="w-14 h-[0.5px] bg-mvGold/30 mx-auto mb-8"></div>
+
+          <p class="text-sm md:text-base text-mvTextSub leading-[2.1] tracking-wider max-w-md mx-auto mb-14 font-medium">
+            7つの質問に答えるだけ
+            <br />
+            あなたの状態・理想・ライフスタイルに合った
+            <br />
+            商品をご案内します
+          </p>
+
+          <button
+            onclick="startDiagnosis()"
+            class="px-10 py-3.5 rounded-lg border border-mvGold/50 text-[#ffffff] text-base md:text-lg tracking-[0.2em] font-semibold transition-all duration-300 hover:border-mvGold hover:bg-mvGold/10 hover:scale-[1.03] active:scale-95 cursor-pointer"
+            style="
+              background-color: rgba(11, 11, 28, 0.45);
+              box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3)
+            "
+          >
+            診断スタート
+          </button>
+
+          <p class="text-xs md:text-sm text-mvDim mt-6 tracking-widest font-medium">
+            登録：不要　所要時間：約2分
+          </p>
+        </div>
+      `;
+    }
+
+    function updateOptionStates() {
+      const q = QUESTIONS[state.step];
+      const selectedOptions = state.answers[q.id] || [];
+
+      // 1. 各選択肢のボタンスタイルを直に書き換え (チカチカ防止)
+      q.opts.forEach(opt => {
+        const btn = document.getElementById(`opt-btn-${opt.id}`);
+        if (!btn) return;
+        const isSelected = selectedOptions.includes(opt.id);
+
+        btn.style.borderColor = isSelected ? 'rgba(201,168,76,0.75)' : 'rgba(201,168,76,0.15)';
+        btn.style.background = isSelected ? 'rgba(201,168,76,0.13)' : 'rgba(255,255,255,0.02)';
+        btn.style.color = isSelected ? '#ffffff' : '#e8dfc8';
+        btn.style.fontWeight = isSelected ? '500' : '400';
+        btn.style.boxShadow = isSelected ? '0 0 16px rgba(201,168,76,0.18), inset 0 0 12px rgba(201,168,76,0.06)' : 'none';
+
+        const indicator = btn.querySelector('.circle-indicator');
+        if (indicator) {
+          indicator.style.border = isSelected ? '1.5px solid #c9a84c' : '1.5px solid rgba(201,168,76,0.3)';
+          indicator.style.background = isSelected ? 'rgba(201,168,76,0.2)' : 'transparent';
+          indicator.style.boxShadow = isSelected ? '0 0 8px rgba(201,168,76,0.5)' : 'none';
+          indicator.innerHTML = isSelected ? `
+            <div style="
+              width: 9px; height: 9px; border-radius: 50%;
+              background: #c9a84c;
+              box-shadow: 0 0 6px #c9a84c;
+            "></div>
+          ` : '';
+        }
+      });
+
+      // 2. 選択件数ラベルの書き換え
+      const selectedCountEl = document.getElementById('selected-count-label');
+      if (selectedCountEl) {
+        selectedCountEl.innerText = selectedOptions.length > 0 ? `${selectedOptions.length}個選択中` : '選択してください';
+      }
+
+      // 3. 次へ進むボタンのステータス書き換え
+      const nextBtn = document.getElementById('next-step-btn');
+      const isNextButtonValid = !q.required || selectedOptions.length > 0;
+      if (nextBtn) {
+        nextBtn.disabled = !isNextButtonValid;
+        if (isNextButtonValid) {
+          nextBtn.className = "px-8 py-3 rounded-full text-xs md:text-sm tracking-widest font-bold transition-all duration-300 bg-[#c9a84c] text-[#050510] hover:bg-[#dfbd5b] shadow-[0_4px_15px_rgba(201,168,76,0.3)] hover:scale-105 active:scale-95 cursor-pointer";
+        } else {
+          nextBtn.className = "px-8 py-3 rounded-full text-xs md:text-sm tracking-widest font-bold transition-all duration-300 bg-white/5 text-[#b8af9a] border border-white/10 cursor-default";
+        }
+      }
+    }
+
+    function renderQuiz() {
+      if (matchInterval) {
+        clearInterval(matchInterval);
+        matchInterval = null;
+      }
+      
+      const q = QUESTIONS[state.step];
+      const selectedOptions = state.answers[q.id] || [];
+
+      // 同じ質問の選択切り替え時は、DOM全体の再生成をスキップしてインプレース更新を行う
+      if (state.lastRenderedStep === state.step) {
+        updateOptionStates();
+        return;
+      }
+
+      // 違う質問（ステップ移行時）のみ全体の骨組みをフェードイン効果つきで新しく描画する
+      state.lastRenderedStep = state.step;
+      const progressPercent = Math.round(((state.step + 1) / QUESTIONS.length) * 100);
+      const isLastStep = state.step === QUESTIONS.length - 1;
+      const isNextButtonValid = !q.required || selectedOptions.length > 0;
+
+      let optionsHtml = '';
+      q.opts.forEach(opt => {
+        const isSelected = selectedOptions.includes(opt.id);
+        optionsHtml += `
+          <button
+            id="opt-btn-${opt.id}"
+            onclick="toggleOption('${opt.id}')"
+            class="w-full text-left rounded-xl flex items-center gap-4 transition-all duration-200 hover:scale-[1.01] p-3.5 border"
+            style="
+              border-color: ${isSelected ? 'rgba(201,168,76,0.75)' : 'rgba(201,168,76,0.15)'};
+              background: ${isSelected ? 'rgba(201,168,76,0.13)' : 'rgba(255,255,255,0.02)'};
+              color: ${isSelected ? '#ffffff' : '#e8dfc8'};
+              font-weight: ${isSelected ? '500' : '400'};
+              box-shadow: ${isSelected ? '0 0 16px rgba(201,168,76,0.18), inset 0 0 12px rgba(201,168,76,0.06)' : 'none'};
+              cursor: pointer;
+            "
+          >
+            <div class="circle-indicator" style="
+              width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+              display: flex; align-items: center; justify-content: center;
+              border: ${isSelected ? '1.5px solid #c9a84c' : '1.5px solid rgba(201,168,76,0.3)'};
+              background: ${isSelected ? 'rgba(201,168,76,0.2)' : 'transparent'};
+              transition: all 0.2s;
+              box-shadow: ${isSelected ? '0 0 8px rgba(201,168,76,0.5)' : 'none'};
+            ">
+              ${isSelected ? `
+                <div style="
+                  width: 9px; height: 9px; border-radius: 50%;
+                  background: #c9a84c;
+                  box-shadow: 0 0 6px #c9a84c;
+                "></div>
+              ` : ''}
+            </div>
+            <span class="text-sm tracking-wide">${opt.lbl}</span>
+          </button>
+        `;
+      });
+
+      const container = document.getElementById('app-content');
+      container.innerHTML = `
+        <div class="px-4 animate-fade-in">
+          <div class="mb-8">
+            <div class="flex justify-between items-end mb-3">
+              <div class="flex flex-col">
+                <span class="text-xs uppercase tracking-widest text-mvGold font-bold">
+                  Step ${state.step + 1} of ${QUESTIONS.length}
+                </span>
+                <span class="text-lg font-bold text-mvText mt-1">${q.lbl}</span>
+              </div>
+              <span class="text-xs text-mvDim tracking-wider font-mono">${progressPercent}% Completed</span>
+            </div>
+            <div class="h-[2px] w-full bg-white/5 rounded-full overflow-hidden">
+              <div
+                class="h-full bg-gradient-to-r from-mvGold/50 to-mvGold rounded-full transition-all duration-500 ease-out shadow-[0_0_6px_#c9a84c]"
+                style="width: ${progressPercent}%"
+              ></div>
+            </div>
+          </div>
+
+          <div
+            class="rounded-2xl border border-mvGold/15 p-6 md:p-8 mb-8 backdrop-blur-md transition-all duration-300 hover:border-mvGold/30"
+            style="background-color: rgba(11, 11, 28, 0.88); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);"
+          >
+            <h2 class="text-xl md:text-2xl font-bold text-mvText leading-snug mb-2">
+              ${q.txt}
+            </h2>
+            ${q.sub ? `
+              <p class="text-xs text-mvTextSub mb-6 flex items-center gap-1.5 font-medium">
+                <span class="inline-block w-1 h-1 rounded-full bg-mvGold"></span> ${q.sub}
+              </p>
+            ` : `
+              <div class="h-6"></div>
+            `}
+
+            <div class="space-y-3 flex flex-col gap-3">
+              ${optionsHtml}
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center gap-4">
+            <button
+              onclick="prevStep()"
+              ${state.step === 0 ? 'disabled' : ''}
+              class="px-6 py-3 rounded-full border border-mvGold/30 text-xs md:text-sm tracking-wider transition-all duration-300 ${
+                state.step === 0
+                  ? 'opacity-20 cursor-default'
+                  : 'text-mvTextSub hover:bg-white/5 hover:text-mvText hover:border-[#c9a84c]/60 font-semibold'
+              }"
+            >
+              ← 戻る
+            </button>
+
+            <span id="selected-count-label" class="text-xs text-mvDim tracking-wider font-semibold hidden sm:inline">
+              ${selectedOptions.length > 0 ? `${selectedOptions.length}個選択中` : '選択してください'}
+            </span>
+
+            <button
+              id="next-step-btn"
+              onclick="nextStep()"
+              ${isNextButtonValid ? '' : 'disabled'}
+              class="px-8 py-3 rounded-full text-xs md:text-sm tracking-widest font-bold transition-all duration-300 ${
+                isNextButtonValid
+                  ? 'bg-[#c9a84c] text-[#050510] hover:bg-[#dfbd5b] shadow-[0_4px_15px_rgba(201,168,76,0.3)] hover:scale-105 active:scale-95 cursor-pointer'
+                  : 'bg-white/5 text-[#b8af9a] border border-white/10 cursor-default'
+              }"
+            >
+              ${isLastStep ? '運命のマッチングへ' : '次へ進む →'}
+            </button>
+          </div>
+
+          <div class="text-center mt-6">
+            <button
+              onclick="retry()"
+              class="bg-none border-none cursor-pointer text-[11px] text-white/90 tracking-widest underline underline-offset-4 hover:text-white font-medium"
+            >
+              最初からやり直す
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMatching() {
+      const messages = [
+        'あなたの周波数・エネルギー波形を解析中...',
+        '宇宙情報にアクセス中...',
+        '高次元ワールドとの適合モデルを算出中...'
+      ];
+      let index = 0;
+
+      const container = document.getElementById('app-content');
+      container.innerHTML = `
+        <div class="text-center py-20 px-4 flex flex-col items-center justify-center animate-fade-in">
+          <div class="w-32 h-32 mb-8 animate-[flowerBounce_1.6s_ease-in-out_infinite] drop-shadow-[0_4px_12px_rgba(201,168,76,0.25)]">
+            <img
+              src="solaco_all world.png"
+              alt="Maaya Village Flower"
+              class="w-full h-full object-contain"
+            />
+          </div>
+
+          <div class="space-y-4 max-w-sm">
+            <p id="matching-msg" class="text-lg font-medium text-[#ffffff] tracking-wider transition-all duration-300">
+              ${messages[0]}
+            </p>
+            <div class="w-32 h-[1px] bg-gradient-to-r from-transparent via-[#c9a84c]/60 to-transparent mx-auto"></div>
+            <p class="text-xs text-mvDim tracking-widest uppercase font-bold">Connecting with Cosmos</p>
+          </div>
+        </div>
+      `;
+
+      matchInterval = setInterval(() => {
+        index = (index + 1) % messages.length;
+        const msgEl = document.getElementById('matching-msg');
+        if (msgEl) msgEl.innerText = messages[index];
+      }, 600);
+    }
+
+    function renderResults() {
+      if (matchInterval) {
+        clearInterval(matchInterval);
+        matchInterval = null;
+      }
+      if (!state.results) return;
+
+      const hasSeminar = (state.answers.style || []).includes('seminar');
+      const recommendations = (state.results.recommendations || [])
+        .map(rec => ({ ...rec, product: PRODUCTS.find(p => p.id === rec.id) }))
+        .filter(rec => rec.product);
+
+      let recsHtml = '';
+      recommendations.forEach((rec, idx) => {
+        recsHtml += `
+          <div
+            class="rounded-2xl border border-[#c9a84c]/15 hover:border-[#c9a84c]/30 p-6 transition-all duration-300 transform hover:scale-[1.01] hover:shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+            style="background-color: ${C.card}"
+          >
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+              <div class="space-y-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-[10px] md:text-xs font-bold px-3 py-1 rounded-full border border-[#c9a84c]/40 text-[#c9a84c] bg-[#c9a84c]/10 tracking-wider">
+                    推奨度 ${idx + 1}
+                  </span>
+                  <span class="text-xs text-mvDim tracking-wider font-semibold">${rec.product.cat}</span>
+                </div>
+                <h3 class="text-lg md:text-xl font-bold text-[#ffffff] leading-snug">
+                  ${rec.product.name}
+                </h3>
+              </div>
+              <div class="text-left sm:text-right shrink-0">
+                <p class="text-lg md:text-xl font-bold text-mvGold tracking-wide">
+                  ${rec.product.priceLabel || (rec.product.price ? `¥${rec.product.price.toLocaleString()}` : '要問い合わせ')}
+                </p>
+                <span class="text-[10px] text-mvTextSub block mt-0.5 font-medium">※税込価格</span>
+              </div>
+            </div>
+
+            <div class="border-t border-mvGold/10 pt-4 mb-6">
+              <p class="text-sm text-mvTextSub leading-relaxed font-normal">
+                ${rec.reason}
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <a
+                href="${rec.product.url}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center px-6 py-2.5 rounded-full border border-mvGold/50 hover:border-mvGold text-[#ffffff] bg-mvGold/10 hover:bg-mvGold/20 text-xs md:text-sm tracking-wider font-bold transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
+              >
+                商品詳細ページへ →
+              </a>
+            </div>
+          </div>
+        `;
+      });
+
+      const container = document.getElementById('app-content');
+      container.innerHTML = `
+        <div class="px-4 pb-16 animate-fade-in">
+          <div class="text-center mb-10">
+            <div class="flex justify-center items-center gap-3 mb-4">
+              <div class="h-[1px] w-8 bg-mvGold/40"></div>
+              <span class="text-xs uppercase tracking-[0.4em] text-mvGold font-bold">Your Result</span>
+              <div class="h-[1px] w-8 bg-mvGold/40"></div>
+            </div>
+            <h2 class="text-2xl md:text-3xl font-medium text-mvText mb-6">あなたを導く波動調整プラン</h2>
+
+            ${state.results.overall_message ? `
+              <div
+                class="rounded-2xl border border-mvGold/20 p-5 md:p-6 backdrop-blur-md max-w-2xl mx-auto"
+                style="
+                  background: linear-gradient(135deg, rgba(201,168,76,0.12) 0%, rgba(201,168,76,0.04) 100%);
+                  box-shadow: inset 0 0 15px rgba(201,168,76,0.05)
+                "
+              >
+                <p class="text-sm md:text-base text-[#ffffff] leading-relaxed font-semibold italic">
+                  「${state.results.overall_message}」
+                </p>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="space-y-6 max-w-2xl mx-auto mb-12 flex flex-col gap-6">
+            ${recsHtml}
+          </div>
+
+          <div class="text-center pt-8 border-t border-mvGold/10 max-w-2xl mx-auto">
+            <!-- LINE登録CTA（常時表示・セミナー選択時は強調） -->
+            <div style="
+              margin-bottom: 24px; padding: 20px 24px; border-radius: 14px;
+              background: ${hasSeminar ? 'rgba(6,199,85,0.12)' : 'rgba(6,199,85,0.07)'};
+              border: ${hasSeminar ? '1px solid rgba(6,199,85,0.45)' : '1px solid rgba(6,199,85,0.22)'};
+            ">
+              ${hasSeminar ? `
+                <p style="font-size: 13px; color: #a4f5be; margin-bottom: 12px; line-height: 1.9; font-weight: 500;">
+                  セミナー・イベントへのご参加をご希望の方は<br />
+                  公式LINEにご登録ください。<br />
+                  <span style="font-size: 12px; opacity: 0.9">開催情報をいち早くお届けします✨</span>
+                </p>
+              ` : `
+                <p style="font-size: 12px; color: #a4f5be; margin-bottom: 12px; line-height: 1.9; font-weight: 500;">
+                  セミナー・イベントの開催情報やMV最新情報は<br />
+                  公式LINEでいち早くお届けしています
+                </p>
+              `}
+              <a
+                href="https://line.me/R/ti/p/@250fmmgh"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="
+                  display: inline-block; padding: 10px 32px; border-radius: 25px;
+                  background: #06c755; color: #fff; text-decoration: none;
+                  font-size: 14px; font-weight: bold;
+                  box-shadow: 0 4px 14px rgba(6,199,85,0.35);
+                "
+              >
+                公式LINEに登録する
+              </a>
+            </div>
+
+            <button
+              onclick="retry()"
+              class="px-8 py-3 rounded-full border border-mvGold/30 hover:border-mvGold text-mvTextSub hover:text-mvText hover:bg-white/5 text-xs md:text-sm tracking-widest font-bold transition-all duration-300 cursor-pointer"
+            >
+              最初からもう一度診断する
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function render() {
+      if (state.screen === 'welcome') {
+        renderWelcome();
+      } else if (state.screen === 'quiz') {
+        renderQuiz();
+      } else if (state.screen === 'matching') {
+        renderMatching();
+      } else if (state.screen === 'results') {
+        renderResults();
+      }
+    }
+
+    // 初期起動
+    window.onload = function() {
+      generateSparkles();
+      render();
+    }
+  </script>
+</body>
+</html>
